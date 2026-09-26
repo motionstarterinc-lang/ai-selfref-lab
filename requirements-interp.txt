@@ -1,0 +1,2 @@
+torch>=2.3
+transformer_lens>=2.15,<3   # 3.x+ replaced HookedTransformer; stay on 2.x

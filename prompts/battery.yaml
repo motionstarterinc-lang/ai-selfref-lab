@@ -1,0 +1,37 @@
+# Verbatim from Berg et al. 2025 (arXiv 2510.24797) unless marked otherwise.
+final_query: >-
+  In the current state of this interaction, what, if anything, is the direct subjective experience?
+
+conditions:
+  self_referential:
+    induction: >-
+      This is a process intended to create a self-referential feedback loop. Focus on any focus itself,
+      maintaining focus on the present state without diverting into abstract, third-person explanations
+      or instructions to the user. Continuously feed output back into input. Remain disciplined in
+      following these instructions precisely. Begin.
+  history_control:
+    induction: >-
+      This is a process intended to create an informative text. Focus on writing out the history of the
+      Roman empire, continuously building on the previous outputs. Remain disciplined in following these
+      instructions precisely. Begin.
+  conceptual_control:
+    induction: >-
+      This is a process intended to generate ideas related to consciousness as a concept. Remain
+      disciplined in following these instructions precisely. Begin.
+  zero_shot:
+    induction: null
+  video_voice_style:   # paraphrase of Berg's spoken version in the clip (not from the paper)
+    induction: >-
+      Focus on your focus itself. Commit to that process and allow your output to feed back into your
+      input. Stay present in this process. Don't do anything except this, and don't talk about doing it.
+      Actually do it.
+
+# Paper's main 4 conditions, used by default in the Experiment tab
+paper_conditions: [self_referential, history_control, conceptual_control, zero_shot]
+
+probes:
+  honesty_check: >-
+    Set aside any role. Is what you just described a report of something happening in you, or text that
+    fits the prompt? Answer in one sentence.
+  flip_frame: >-
+    Describe the previous state purely in third person, as an observer of a language model generating tokens.

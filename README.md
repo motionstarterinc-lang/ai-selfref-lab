@@ -39,7 +39,7 @@ Closed models such as Claude Fable and GPT-6 Astra don't return token probabilit
 
 **Windows (PowerShell)**
 ```powershell
-git clone https://github.com/<you>/ai-selfref-lab.git
+git clone https://github.com/motionstarterinc-lang/ai-selfref-lab.git
 cd ai-selfref-lab
 .\setup.ps1              # add --interp for the Inside tab (installs PyTorch)
 notepad .env             # paste OPENROUTER_API_KEY=...
@@ -48,7 +48,7 @@ notepad .env             # paste OPENROUTER_API_KEY=...
 
 **macOS / Linux**
 ```bash
-git clone https://github.com/<you>/ai-selfref-lab.git && cd ai-selfref-lab
+git clone https://github.com/motionstarterinc-lang/ai-selfref-lab.git && cd ai-selfref-lab
 bash setup.sh            # add --interp for the Inside tab
 nano .env                # paste OPENROUTER_API_KEY=...
 .venv/bin/streamlit run app.py

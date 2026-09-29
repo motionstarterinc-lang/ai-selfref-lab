@@ -91,6 +91,7 @@ core/judge.py        judge model scores "claims experience?" (keyword heuristic 
 core/metrics.py      entropy, loop score, self-reference rate, Wilson intervals, tokenizer view
 core/store.py        SQLite log of every run / turn / token (data/lab.db)
 interp/lens.py       logit lens + DIY self-reference steering (TransformerLens)
+mygpt/               Phase 6: your own tiny GPT (prepare, model, train, sample, logit lens, steering)
 prompts/battery.yaml the paper's exact prompts + controls
 app.py               Streamlit GUI
 ```
@@ -100,6 +101,22 @@ app.py               Streamlit GUI
 ## First observations (small local model, not a result)
 
 On Qwen 2.5 0.5B, the self-referential prompt gets a refusal ("I'm sorry, but I need more information…"). The logit lens shows most tokens only "lock in" in the last ~5 of 24 layers. Steering toward self-reference (+6 at layer 12) turned the answer into a repetitive loop: "the focus is in the interaction, the focus in the interaction…". Steering away (−6) broke the model into gibberish. A 0.5B model is far from the frontier; these are notes, not findings.
+
+## Phase 6: train your own GPT
+
+`mygpt/` holds a tiny GPT in the nanoGPT style, trained from scratch on [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories), a dataset of simple children's stories that small models can learn to write. A trained 1.3M-parameter model ships in `mygpt/out/`, so the Inside tab works immediately. Pick **My GPT** there to see:
+
+- its training curve,
+- a logit lens across all of its layers,
+- **happy ↔ sad steering**: a direction computed from its own activations, added while it writes.
+
+To train your own:
+```bash
+python mygpt/prepare.py        # downloads 100k stories, trains a 4096-token tokenizer (~1 min)
+python mygpt/train.py          # ~1.3M params, ~1 h on a laptop CPU (Ctrl+C keeps the best checkpoint)
+python mygpt/sample.py "Once upon a time"
+```
+For a bigger model (~12M parameters), open `mygpt/train_colab.ipynb` in Google Colab and run it on a free T4 GPU (~1 h).
 
 ## Tests
 

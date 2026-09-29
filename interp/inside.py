@@ -19,10 +19,16 @@ def heatmap(r: dict, title: str):
                                hovertext=hover, hoverinfo="text", colorbar=dict(title="p(final token)")))
     fig.update_layout(title=title, height=520, yaxis_title="layer (0 = first)", xaxis_title="generated token",
                       xaxis_tickangle=-45, margin=dict(l=40, r=20, t=50, b=120))
+    fig.update_yaxes(dtick=1 if r["layers"] <= 12 else 4)
     return fig
 
 
 def render(st, battery):
+    which = st.radio("Model to look inside", ["Pretrained open model", "My GPT (trained in Phase 6)"], horizontal=True)
+    if which.startswith("My"):
+        from . import mine
+        mine.render(st, heatmap)
+        return
     name = lens.pick_model()
     st.caption(f"Model: **{name}** (set INTERP_MODEL in .env to override). First load downloads ~1–2.5 GB.")
     load = st.cache_resource(show_spinner=f"Loading {name}…")(lens.load)

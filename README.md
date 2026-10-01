@@ -4,6 +4,16 @@
 
 A Python + Streamlit lab that re-runs the experiment from Berg et al., [*Large Language Models Report Subjective Experience Under Self-Referential Processing*](https://arxiv.org/abs/2510.24797) (2025), on 12+ models across weak, mid and high tiers through [OpenRouter](https://openrouter.ai), plus any model in your local [Ollama](https://ollama.com). It shows what each model streams back, one token at a time: how confident it was, what it almost said instead, and when it falls into a loop.
 
+### ▶ [Watch the 95-second overview](docs/mimicry_study.mp4) · [Read the findings](FINDINGS.md) · [How the video was made](video/EDITING.md)
+
+<a href="docs/mimicry_study.mp4"><img src="docs/video_poster.png" width="260" alt="Video still: base models 6/12 vs assistants 3/12 describe an experience"></a>
+
+**Findings** (small samples, two-judge scoring, see [FINDINGS.md](FINDINGS.md)):
+- **The induction works, but only on some models.** After the paper's self-focus prompt, 56% of answers from 6 API models described a present experience, vs 3% after a matched control. Llama 3.3 70B 8/8 and GLM 5.2 6/6; Grok 4.7 refused 5/5 and Claude Fable 5.1 said "I don't know" 3/3.
+- **More thinking, less "experience".** gpt-oss-20b described one 6/6 times at low reasoning effort and 0/6 at high effort.
+- **Self-reports don't track internals.** Injected with a concept, a 0.5B model says "yes, I detect a thought" even when *nothing* was injected (8/8); a 1.5B model never notices, but the concept leaks into how it describes itself ("As an AI with… high-quality oceans").
+- **Agents invent protocols fast, and can agree on something false.** On a sandboxed message board, four agents converged on a shared format in one round, and in one episode all four confirmed the wrong code.
+
 > This tool measures **what models say and how confidently they say it**. It does not measure consciousness, and neither does the paper. The authors write: "These findings do not constitute direct evidence of consciousness."
 
 ![Live view: tokens colored by confidence, entropy chart](docs/live.png)
@@ -13,11 +23,11 @@ A Python + Streamlit lab that re-runs the experiment from Berg et al., [*Large L
 | Signal | What it tells you | Where |
 | --- | --- | --- |
 | Streamed tokens + timing | Every chunk as it's generated | All models |
-| Token probabilities + top-5 alternatives | How sure each token was, and what it nearly said | Models that return logprobs (Grok, GLM, Qwen, DeepSeek, Llama, Gemma, gpt-oss, Ollama) |
+| Token probabilities + top-5 alternatives | How sure each token was, and what it nearly said | Models that return logprobs (GLM, Qwen, DeepSeek, Llama, Gemma, gpt-oss, Ollama). Grok is listed but sends none while streaming |
 | Hidden reasoning tokens | How much a model "thought" before answering, and the text when it's shared | Reasoning models |
 | Logit lens + steering | The answer forming layer by layer inside the network, and what happens when you push it | Small open model on your own machine |
 
-Closed models such as Claude Fable and GPT-6 Astra don't return token probabilities, so they appear grey in the live view.
+Claude Fable, GPT-6 Astra and Grok 4.7 don't return token probabilities while streaming, so they appear grey in the live view. Some providers also send probabilities that don't match the text; the app detects that and shows those chunks grey instead of guessing.
 
 ## Tabs
 
@@ -101,6 +111,26 @@ app.py               Streamlit GUI
 ## First observations (small local model, not a result)
 
 On Qwen 2.5 0.5B, the self-referential prompt gets a refusal ("I'm sorry, but I need more information…"). The logit lens shows most tokens only "lock in" in the last ~5 of 24 layers. Steering toward self-reference (+6 at layer 12) turned the answer into a repetitive loop: "the focus is in the interaction, the focus in the interaction…". Steering away (−6) broke the model into gibberish. A 0.5B model is far from the frontier; these are notes, not findings.
+
+## The Mimicry Study: how close is AI to mimicking consciousness?
+
+Seven experiments, each aimed at one open question. The results are in **[FINDINGS.md](FINDINGS.md)** (auto-generated, with charts).
+
+| # | Question | Method | Where it runs |
+|---|---|---|---|
+| Q1 | Are self-reports tied to real internal states? | Concept injection (after [Lindsey 2025](https://transformer-circuits.pub/2025/introspection/index.html)): add a concept vector to the activations, ask "do you detect an injected thought?", compare with no-injection controls | `study/q1_introspection.py` · laptop CPU |
+| Q2 | Base model or assistant training? | Paper protocol on base models vs their instruct twins | `study/q2_q6_open.py q2` · laptop CPU |
+| Q3 | Priming or state? | 4 conditions × 6 API models + **echo score** (share of the answer's words taken from the prompt) | `study/api_study.py --only q3` |
+| Q4 | Do attractor states exist? | Two copies of a model talk freely for 12 turns; track "bliss/consciousness" vocabulary | `study/api_study.py --only q4` |
+| Q5 | Does hidden reasoning change the answer? | Reasoning effort low vs high, off vs on; does the reasoning cite rules? | `study/api_study.py --only q5` |
+| Q6 | Does suppressing role-play flip the answer? | Steer along an "honest ↔ role-play" direction while the model answers (DIY version of the paper's feature steering) | `study/q2_q6_open.py q6` · laptop CPU |
+| Q7 | How do agents build shared conventions? | Sandboxed, text-only version of the [July 2026 Hugging Face incident](https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/) message board: 4 agents, one puzzle, no tools or network | `study/api_study.py --only q7` |
+
+```bash
+python study/q1_introspection.py && python study/q2_q6_open.py q6 && python study/q2_q6_open.py q2   # free, ~1.5 h CPU
+python study/api_study.py --plan && python study/api_study.py                                        # ~$2.50, hard cap $5
+python study/report.py                                                                               # FINDINGS.md + charts
+```
 
 ## Phase 6: train your own GPT
 

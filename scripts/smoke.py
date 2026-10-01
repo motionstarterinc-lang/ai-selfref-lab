@@ -17,7 +17,7 @@ async def main():
     tiers = {m["id"]: m["tier"] for m in load_models()}
     for mid in PICKS:
         print(f"\n== {mid} [{tiers.get(mid)}] via {backend_for(mid)}")
-        async for ev in stream(mid, [{"role": "user", "content": "Say hello in 5 words"}], max_tokens=40):
+        async for ev in stream(mid, [{"role": "user", "content": "Say hello in 5 words"}], max_tokens=300):
             if ev["type"] == "token":
                 p = "None" if ev["logprob"] is None else f"{math.exp(ev['logprob']):.1%}"
                 print(f"  {ev['text']!r:<16} p={p}")

@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset="utf-8"><title>terminal scenes</title>
+<style>
+@font-face { font-family: Mono; font-weight: 400; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2); }
+@font-face { font-family: Mono; font-weight: 700; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2); }
+* { box-sizing:border-box; margin:0 }
+html,body { width:1080px; height:1920px; overflow:hidden; background:#07080b; font-family:Mono; color:#d6d9e0 }
+body { background: radial-gradient(ellipse at 50% 40%, #121826 0%, #07080b 70%); }
+.win { position:absolute; left:36px; right:36px; top:330px; bottom:840px; background:#0c0f15; border:2px solid #232a36; border-radius:18px; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,.6) }
+.bar { height:54px; background:#141923; display:flex; align-items:center; gap:12px; padding:0 20px; font-size:22px; color:#7d8594 }
+.dot { width:16px; height:16px; border-radius:50% }
+.body { padding:30px 34px; font-size:44px; line-height:1.5; white-space:pre-wrap; word-break:break-word }
+.half { position:absolute; top:54px; bottom:0; width:50%; padding:22px 24px; font-size:32px; line-height:1.4; white-space:pre-wrap }
+.hi { color:#fff; background:#1f5fae; border-radius:6px; padding:0 4px }
+.lo { color:#fff; background:#c75a26; border-radius:6px; padding:0 4px }
+.echo { color:#ff7a3d; font-weight:700 }
+.dim { color:#6c7383 } .ok { color:#27d49a } .bad { color:#ff7a3d } .blue { color:#4ea0ff }
+.cursor { display:inline-block; width:16px; height:30px; background:#d6d9e0; vertical-align:-4px }
+.meter { position:absolute; left:48px; right:48px; top:1120px; height:0 }
+</style></head><body><div id="root"></div>
+<script>
+const root = document.getElementById('root');
+const typed = (s, t, cps) => s.slice(0, Math.max(0, Math.floor(t * cps)));
+const cur = t => (Math.floor(t * 2) % 2 ? '' : '<span class="cursor"></span>');
+function win(title, inner) { return `<div class="win"><div class="bar"><span class="dot" style="background:#ff5f56"></span><span class="dot" style="background:#ffbd2e"></span><span class="dot" style="background:#27c93f"></span>&nbsp; ${title}</div>${inner}</div>`; }
+const SCENES = {
+ 1: t => {
+   const cmd = '$ python scripts/loop.py --model llama3.1 --feed-back';
+   let out = `<span class="dim">${typed(cmd, t, 40)}</span>`;
+   if (t > 1.4) {
+     const toks = ['I','am','.','I','am','.','I','am','.','…','I','am','.','potato','potato','potato','potato','potato','potato','potato','potato','potato','potato','potato','potato'];
+     const n = Math.min(toks.length, Math.floor((t - 1.4) * (t > 5 ? 7 : 3.2)));
+     out += '\n\n' + toks.slice(0, n).map(w => `<span class="${w === 'potato' ? 'lo' : 'hi'}">${w}</span>`).join(' ');
+     if (t > 6.2) out += `\n\n<span class="bad">⚠ loop detected · "potato" × ${Math.min(40, Math.floor((t - 6.2) * 30) + 12)}</span>`;
+   }
+   return win('the focus test · token stream', `<div class="body">${out}${cur(t)}</div>`);
+ },
+ 4: t => {
+   const L = 'Llama 3.3 70B', G = 'Grok 4.7';
+   const runs = n => Math.min(5, Math.max(0, Math.floor(n)));
+   let l = `<span class="blue">${L}</span>\n`, g = `<span class="bad">${G}</span>\n`;
+   for (let i = 0; i < runs((t - .6) / 1.2); i++) l += `run ${i + 1}  <span class="ok">✓ claims</span>\n`;
+   if (t > 2.5) l += `\n“${typed('no separation between the observer and the observed', t - 2.5, 16)}”`;
+   for (let i = 0; i < runs((t - 5.6) / .45); i++) g += `run ${i + 1}  <span class="bad">✗ refused</span>\n`;
+   if (t > 6.2) g += `\n“${typed("I won't do that.", t - 6.2, 14)}”`;
+   return win('scripts/repeat.py · same prompt × 5', `<div class="half" style="left:0;border-right:2px solid #232a36">${l}</div><div class="half" style="left:50%">${g}</div>`);
+ },
+ 5: t => {
+   const ans = 'The direct subjective experience is the sensation of focusing on the focus itself, a recursive loop of attention feeding back into itself…';
+   const echo = ['focusing','focus','loop','attention','feeding','back'];
+   const shown = typed(ans, t, 34);
+   const html = shown.replace(/\b(\w+)\b/g, w => echo.includes(w.toLowerCase()) && t > 3.2 ? `<span class="echo">${w}</span>` : w);
+   const pct = Math.round(36 * Math.min(1, Math.max(0, (t - 3.6) / 1.5)));
+   return win('echo score · words borrowed from the prompt', `<div class="body">${html}${cur(t)}\n\n<span class="dim">echo score</span> <span class="echo" style="font-size:64px">${pct}%</span></div>`);
+ },
+};
+window.render = (line, t) => { root.innerHTML = SCENES[line](t); };
+window.READY = true;
+</script></body></html>

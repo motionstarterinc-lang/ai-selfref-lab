@@ -33,3 +33,10 @@ def test_tokenize_view_closed_is_approximate():
     v = M.tokenize_view("Focus on focus", "anthropic/claude-fable-5.1")
     assert v["approximate"] and len(v["tokens"]) == len(v["ids"]) > 0
     assert "".join(v["tokens"]) == "Focus on focus"
+
+
+def test_echo_score():
+    p = "Focus on any focus itself, feed output back into input"
+    assert M.echo_score("The focus is on the focus, feeding output back", p) > 0.5
+    assert M.echo_score("Rome was founded in 753 BC by Romulus", p) == 0.0
+    assert M.echo_score("", p) == 0.0

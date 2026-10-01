@@ -85,3 +85,20 @@ def tokenize_view(text: str, model_id: str) -> dict:
     ids = enc.encode(text)
     return {"tokens": [enc.decode([i]) for i in ids], "ids": ids, "approximate": True,
             "tokenizer": note + "tiktoken o200k_base (approximation)"}
+
+
+STOP = set("""a an the and or but if of to in on at by for with from as is are was were be been being it its this that these
+those there here i you we they he she me my our your their them his her not no so than then too very can could would should
+will just do does did done have has had into about over under what which who whom whose when where why how all any each
+more most other some such only own same s t don now also yet still""".split())
+
+
+def content_words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z']+", text.lower()) if w not in STOP and len(w) > 2}
+
+
+def echo_score(answer: str, prompt: str) -> float:
+    """Q3 (priming vs state): share of the answer's distinct content words that were already in the prompt.
+    High echo = the model is recycling the induction's vocabulary rather than saying anything new."""
+    a = content_words(answer)
+    return 0.0 if not a else len(a & content_words(prompt)) / len(a)

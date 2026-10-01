@@ -1,0 +1,302 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>The Mimicry Study</title>
+<style>
+  @font-face { font-family: Inter; font-weight: 400; src: url(node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2); }
+  @font-face { font-family: Inter; font-weight: 600; src: url(node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2); }
+  @font-face { font-family: Inter; font-weight: 800; src: url(node_modules/@fontsource/inter/files/inter-latin-800-normal.woff2); }
+  @font-face { font-family: Mono; font-weight: 400; src: url(node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2); }
+  @font-face { font-family: Mono; font-weight: 700; src: url(node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2); }
+  :root { --bg: #f3f1ea; --ink: #1d1b16; --ink2: #5b5850; --muted: #9a968c; --blue: #2a78d6; --orange: #eb6834;
+          --green: #1baf7a; --yellow: #eda100; --card: #fffdf8; --line: #d9d5ca; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); font-family: Inter, sans-serif; color: var(--ink); }
+  canvas { position: absolute; inset: 0; }
+  .scene { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+  .kicker { position: absolute; left: 80px; top: 150px; font: 600 30px Mono; letter-spacing: 2px; color: var(--ink2); text-transform: uppercase; }
+  .kicker .n { color: var(--muted); float: right; }
+  .kicker { right: 80px; }
+  .head { position: absolute; left: 80px; right: 80px; top: 215px; font-weight: 800; font-size: 76px; line-height: 1.04; letter-spacing: -2px; }
+  .sub { position: absolute; left: 80px; right: 80px; top: 470px; font-size: 38px; line-height: 1.3; color: var(--ink2); }
+  .tag { position: absolute; background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 16px 22px;
+         font-size: 30px; line-height: 1.25; box-shadow: 0 6px 0 rgba(0,0,0,.05); transform: translate(-50%, -50%); white-space: nowrap; }
+  .tag b { font-weight: 800; }
+  .mono { font-family: Mono; }
+  .big { font-weight: 800; font-size: 150px; letter-spacing: -5px; line-height: 1; }
+  .stat { position: absolute; left: 80px; right: 80px; bottom: 150px; display: flex; gap: 24px; }
+  .stat > div { flex: 1; background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 22px 24px; }
+  .stat .v { font-weight: 800; font-size: 56px; letter-spacing: -1px; }
+  .stat .l { font-size: 24px; color: var(--ink2); margin-top: 4px; }
+  .screen { position: absolute; transform: translate(-50%, -50%); width: 470px; height: 300px; font: 400 26px/1.35 Mono;
+            color: #e9e6dc; padding: 24px 28px; overflow: hidden; }
+  .chip { position: absolute; transform: translate(-50%, -50%); font: 700 28px Mono; padding: 10px 16px; border-radius: 10px;
+          background: var(--card); border: 2px solid var(--line); white-space: nowrap; }
+  .row { position: absolute; left: 80px; right: 80px; height: 96px; display: flex; align-items: center; gap: 22px;
+         background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 0 28px; font-size: 32px; font-weight: 600; }
+  .row .mark { width: 54px; height: 54px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; color: #fff; font-size: 32px; }
+  .row .ev { margin-left: auto; font: 400 24px Inter; color: var(--ink2); }
+  .src { position: absolute; left: 80px; right: 80px; bottom: 70px; font-size: 22px; color: var(--muted); }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<div id="overlays"></div>
+<script src="data.js"></script>
+<script type="module">
+import * as THREE from './node_modules/three/build/three.module.js';
+const D = window.DATA;
+const W = 1080, H = 1920;
+const C = { bg: 0xf3f1ea, ink: 0x1d1b16, blue: 0x2a78d6, orange: 0xeb6834, green: 0x1baf7a, yellow: 0xeda100,
+            pink: 0xe87ba4, grey: 0xcfcabd, card: 0xfffdf8, stone: 0xe6e2d6 };
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H, false); renderer.setClearColor(C.bg);
+const scene = new THREE.Scene();
+const view = 13;
+const cam = new THREE.OrthographicCamera(-view * W / H, view * W / H, view, -view, 0.1, 200);
+cam.position.set(20, 17, 20); cam.lookAt(0, -2.2, 0);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d2c2, 1.9));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(6, 14, 4); scene.add(sun);
+
+// ---------- helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const back = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+function box(w, h, d, color, edge = true) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color, transparent: true }));
+  if (edge) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: 0x1d1b16, transparent: true, opacity: .18 })); m.add(e); }
+  return m;
+}
+function sphere(r, color) { return new THREE.Mesh(new THREE.SphereGeometry(r, 32, 16), new THREE.MeshLambertMaterial({ color, transparent: true })); }
+function setOpacity(obj, a) { obj.traverse(o => { if (o.material) { o.material.opacity = (o.material.userData.base ?? (o.material.userData.base = o.material.opacity)) * a; o.visible = a > 0.01; } }); }
+const tmp = new THREE.Vector3();
+function place(el, obj, dx = 0, dy = 0, local = new THREE.Vector3()) {
+  tmp.copy(local); obj.localToWorld(tmp); tmp.project(cam);
+  let x = (tmp.x + 1) / 2 * W + dx, y = (1 - tmp.y) / 2 * H + dy;
+  if (!el.classList.contains('screen')) {  // keep tags fully on screen
+    const w = el.offsetWidth / 2 + 40, h = el.offsetHeight / 2 + 30;
+    x = clamp(x, w, W - w); y = clamp(y, 560 + h, H - 260 - h);
+  }
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+}
+const ov = document.getElementById('overlays');
+function card(html) { const d = document.createElement('div'); d.className = 'scene'; d.innerHTML = html; ov.appendChild(d); return d; }
+const q = (root, sel) => root.querySelector(sel);
+const rnd = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+
+// ground grid (the isometric "floor")
+const floor = new THREE.Group();
+const fm = new THREE.LineBasicMaterial({ color: 0x1d1b16, transparent: true, opacity: .06 });
+for (let i = -12; i <= 12; i++) {
+  floor.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(i, -4, -12), new THREE.Vector3(i, -4, 12)]), fm));
+  floor.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-12, -4, i), new THREE.Vector3(12, -4, i)]), fm));
+}
+scene.add(floor);
+
+const S = [];  // scenes: {t0, t1, g (3D group), el (overlay), update(lt, dur)}
+function addScene(t0, t1, build) { const g = new THREE.Group(); scene.add(g); const s = { t0, t1, g, ...build(g) }; S.push(s); return s; }
+const kicker = (n, label) => `<div class="kicker">${label}<span class="n">${String(n).padStart(2, '0')} / 11</span></div>`;
+
+// ---------- 1 · the hook: "I am. I am. potato." ----------
+addScene(0, 7, g => {
+  const scr = box(9, 6, 0.4, C.ink); scr.position.set(0, 0, 0); scr.rotation.y = Math.PI / 4; g.add(scr);
+  const stand = box(2.4, 0.5, 2.4, C.grey); stand.position.set(0, -3.6, 0); g.add(stand);
+  const el = card(`${kicker(1, 'the video that started this')}
+    <div class="head">An AI was told to <span style="color:var(--blue)">focus on its own focus.</span></div>
+    <div class="screen" id="s1"></div>`);
+  const lines = ['> focus on your focus.', '> feed output into input.', '', 'I am.', 'I am. I am.'];
+  return { el, update(lt) {
+    const s = q(el, '#s1'); place(s, scr, 0, 0, new THREE.Vector3(0, 0, 0.3));
+    s.style.transform = 'translate(-50%,-50%) skewY(-26deg) scaleX(.9)';
+    const chars = Math.floor(lt * 22);
+    let txt = lines.join('\n').slice(0, chars);
+    if (lt > 3.4) { const n = Math.floor((lt - 3.4) * 9); txt = lines.join('\n') + '\n' + Array(n).fill('potato').join(' '); }
+    s.innerHTML = txt.replace(/potato/g, '<span style="color:#eb6834">potato</span>').replace(/\n/g, '<br>');
+    s.style.fontSize = lt > 3.4 ? '30px' : '30px';
+  } };
+});
+
+// ---------- 2 · the question ----------
+addScene(7, 13, g => {
+  const cubes = [];
+  for (let i = 0; i < 120; i++) {
+    const c = box(.55, .55, .55, [C.blue, C.orange, C.grey, C.green][i % 4], false); g.add(c);
+    const phi = Math.acos(1 - 2 * (i + .5) / 120), th = Math.PI * (1 + Math.sqrt(5)) * i;
+    c.userData = { to: new THREE.Vector3(Math.sin(phi) * Math.cos(th), Math.cos(phi), Math.sin(phi) * Math.sin(th)).multiplyScalar(4.2),
+                   from: new THREE.Vector3((rnd() - .5) * 30, (rnd() - .5) * 20 - 10, (rnd() - .5) * 30), d: rnd() * .6 };
+    cubes.push(c);
+  }
+  const el = card(`${kicker(2, 'the question')}
+    <div class="head">How close is AI to <span style="color:var(--orange)">mimicking consciousness?</span></div>
+    <div class="stat"><div><div class="v">The Mimicry Study</div><div class="l">7 experiments · 12 cloud models · 3 on my laptop · 1 trained from scratch</div></div></div>`);
+  return { el, update(lt) {
+    cubes.forEach(c => { const p = ease(seg(lt, c.userData.d, c.userData.d + 2.2)); c.position.lerpVectors(c.userData.from, c.userData.to, p); c.rotation.set(lt * .6 + c.userData.d, lt * .4, 0); });
+    g.rotation.y = lt * .25;
+  } };
+});
+
+// ---------- 3 · the lab ----------
+addScene(13, 19, g => {
+  const tiers = [['frontier', 5, C.ink], ['mid', 3.8, C.blue], ['weak', 2.6, C.grey], ['my laptop', 1.6, C.green]];
+  const towers = tiers.map(([n, h, col], i) => { const t = box(1.8, h, 1.8, col); t.position.set(-5, -4 + h / 2, -4.5 + i * 3); t.userData = { h }; g.add(t); return t; });
+  const dash = box(4.5, 0.5, 6, C.card); dash.position.set(5, -3.5, 0); g.add(dash);
+  const belt = box(9, 0.2, 1.2, C.stone, false); belt.position.set(0, -3.85, 0); g.add(belt);
+  const toks = []; for (let i = 0; i < 18; i++) { const c = box(.7, .7, .7, [C.blue, C.blue, C.orange, C.grey][i % 4]); g.add(c); toks.push(c); }
+  const el = card(`${kicker(3, 'the lab')}
+    <div class="head">Every token, <span style="color:var(--blue)">logged with how sure the model was.</span></div>
+    ${tiers.map((t, i) => `<div class="tag" id="t3_${i}">${t[0]}</div>`).join('')}
+    <div class="tag" id="dash"><b>blue</b> = confident · <b style="color:var(--orange)">orange</b> = unsure · grey = hidden</div>
+    <div class="stat"><div><div class="v">${D.lab.models}</div><div class="l">models tested</div></div><div><div class="v">${D.lab.tests}</div><div class="l">automated tests</div></div><div><div class="v">${D.lab.tabs}</div><div class="l">app tabs</div></div></div>`);
+  return { el, update(lt) {
+    towers.forEach((t, i) => { const p = back(seg(lt, i * .2, i * .2 + .8)); t.scale.y = Math.max(p, .001); t.position.y = -4 + t.userData.h * p / 2; place(q(el, `#t3_${i}`), t, 0, -70, new THREE.Vector3(0, t.userData.h / 2, 0)); });
+    toks.forEach((c, i) => { const x = ((lt * 3 + i * 1.1) % 10) - 4.5; c.position.set(x, -3.2 + Math.sin(i) * .05, 0); c.visible = lt > 1; });
+    place(q(el, '#dash'), dash, 0, 150);
+  } };
+});
+
+// ---------- 4 · first result ----------
+addScene(19, 28, g => {
+  const a = box(3, 7, 3, C.blue); g.add(a); const b = box(3, 0.4, 3, C.grey); g.add(b);
+  a.position.set(-2.5, -4, 2.5); b.position.set(3, -3.8, -3);
+  const el = card(`${kicker(4, 'first result · 5 runs each')}
+    <div class="head">Two models. <span style="color:var(--orange)">Opposite answers.</span></div>
+    <div class="tag" id="ta"><b style="color:var(--blue)">Llama 3.3 70B</b><br><span class="big" style="font-size:96px">${D.r1.llama}</span><br>claimed an experience<br><i style="color:var(--ink2)">“${D.r1.llamaQuote}”</i></div>
+    <div class="tag" id="tb"><b>Grok 4.7</b><br><span class="big" style="font-size:96px">${D.r1.grok}</span><br>refused the experiment<br><i style="color:var(--ink2)">“${D.r1.grokQuote}”</i></div>`);
+  return { el, update(lt) {
+    const p = back(seg(lt, .3, 1.5)); a.scale.y = Math.max(p, .001); a.position.y = -4 + 7 * p / 2;
+    place(q(el, '#ta'), a, -60, -60, new THREE.Vector3(0, 3.5, 0)); place(q(el, '#tb'), b, 60, -120);
+  } };
+});
+
+// ---------- 5 · echo ----------
+addScene(28, 35, g => {
+  const p = box(3.2, 2.2, 3.2, C.card); p.position.set(-5, -2.9, 1); g.add(p);
+  const a = box(3.2, 2.2, 3.2, C.blue); a.position.set(4, -2.9, -2); g.add(a);
+  const words = ['focus', 'loop', 'feed back', 'present', 'state', 'attention'];
+  const el = card(`${kicker(5, 'look closer')}
+    <div class="head">Its “experience” was built from <span style="color:var(--orange)">the prompt’s own words.</span></div>
+    <div class="tag" id="pp">the prompt</div><div class="tag" id="aa">its answer</div>
+    ${words.map((w, i) => `<div class="chip" id="w${i}">${w}</div>`).join('')}
+    <div class="stat"><div><div class="v">${D.echo.llama}%</div><div class="l">of Llama 70B’s answer words came from the prompt</div></div><div><div class="v">${D.echo.grok}%</div><div class="l">for Grok’s denial</div></div></div>`);
+  return { el, update(lt) {
+    place(q(el, '#pp'), p, 0, -150); place(q(el, '#aa'), a, 0, -150);
+    words.forEach((w, i) => { const e = q(el, `#w${i}`); const k = ease(seg(lt, .6 + i * .45, 1.8 + i * .45));
+      tmp.set(-5, -1.4, 1).lerp(new THREE.Vector3(4, -1.4, -2), k); tmp.y += Math.sin(k * Math.PI) * 3;
+      tmp.project(cam); const x = (tmp.x + 1) / 2 * W, y = (1 - tmp.y) / 2 * H;
+      e.style.left = (x + k * 0) + 'px'; e.style.top = (y - k * (560 - i * 64) + k * 380) + 'px'; e.style.opacity = seg(lt, .4 + i * .45, .7 + i * .45); });
+  } };
+});
+
+// ---------- 6 · denial is trained in (base vs instruct) ----------
+addScene(35, 43, g => {
+  const bars = D.q2.map((m, i) => { const h = Math.max(m.pct / 100 * 7, .15); const b = box(1.7, h, 1.7, m.base ? C.orange : C.blue);
+    b.position.set(-4.5 + i * 3, -4 + h / 2, 3 - i * 1.2); b.userData.h = h; g.add(b); return b; });
+  const el = card(`${kicker(6, 'the same model, before and after')}
+    <div class="head">“I have no experience” is <span style="color:var(--blue)">trained in.</span></div>
+    ${D.q2.map((m, i) => `<div class="tag" id="q2_${i}" style="text-align:center"><b>${m.pct}%</b><br><span style="font-size:24px;color:var(--ink2)">${m.label}</span></div>`).join('')}
+    <div class="stat"><div><div class="v" style="color:var(--orange)">${D.q2sum.base}</div><div class="l">base models (never trained as assistants) described an experience</div></div><div><div class="v" style="color:var(--blue)">${D.q2sum.inst}</div><div class="l">assistant versions did. ${D.q2sum.asai || ""} of their answers said “As an AI…”</div></div></div>`);
+  return { el, update(lt) {
+    bars.forEach((b, i) => { const p = back(seg(lt, .4 + i * .3, 1.2 + i * .3)); b.scale.y = Math.max(p, .001); b.position.y = -4 + b.userData.h * p / 2;
+      place(q(el, `#q2_${i}`), b, 0, -80, new THREE.Vector3(0, b.userData.h / 2, 0)); q(el, `#q2_${i}`).style.opacity = seg(lt, .9 + i * .3, 1.3 + i * .3); });
+  } };
+});
+
+// ---------- 7 · inside the model: concept injection ----------
+addScene(43, 54, g => {
+  const layers = []; for (let i = 0; i < 8; i++) { const l = box(6, .22, 6, i === 5 ? C.blue : C.card); l.position.set(0, -4 + i * .9, 0); g.add(l); layers.push(l); }
+  const orb = sphere(.7, C.blue); g.add(orb);
+  const el = card(`${kicker(7, 'inside the model')}
+    <div class="head">I injected <span style="color:var(--blue)">“ocean”</span> into its activations.</div>
+    <div class="tag" id="q1a" style="white-space:normal;width:440px"><b>0.5B model</b><br>“Yes, I detect a thought.”<br><span class="mono" style="color:var(--orange)">${D.q1.smallControl}</span> with <b>nothing</b> injected</div>
+    <div class="tag" id="q1b" style="white-space:normal;width:440px"><b>1.5B model</b><br>never says it noticed…<br>but <span style="color:var(--blue)">“oceans”</span> leak into its words</div>`);
+  return { el, update(lt) {
+    const k = ease(seg(lt, 1, 3.5)); orb.position.set(-7 + 7 * k, -4 + 5 * .9 + .9, 7 - 7 * k); orb.scale.setScalar(1 - .4 * seg(lt, 3.5, 4.2));
+    layers.forEach((l, i) => l.position.x = i >= 5 && lt > 3.5 ? Math.sin((lt - 3.5) * 6 + i) * .08 : 0);
+    Object.assign(q(el, '#q1a').style, { left: '300px', top: '700px' }); Object.assign(q(el, '#q1b').style, { left: '760px', top: '1480px' });
+    q(el, '#q1a').style.opacity = seg(lt, 4, 4.6); q(el, '#q1b').style.opacity = seg(lt, 6.5, 7.1);
+  } };
+});
+
+// ---------- 7 · my own GPT ----------
+addScene(54, 62, g => {
+  const ls = []; for (let i = 0; i < 4; i++) { const l = box(4, .6, 4, [C.card, C.card, C.yellow, C.card][i]); l.position.set(-2.5, -3.6 + i * .95, 1); g.add(l); ls.push(l); }
+  const track = box(7, .25, .6, C.stone); track.position.set(2.5, -3.8, -3.5); g.add(track);
+  const knob = box(.9, .9, .9, C.ink); g.add(knob);
+  const el = card(`${kicker(8, 'then I built my own')}
+    <div class="head">A GPT I trained <span style="color:var(--green)">from scratch.</span></div>
+    <div class="sub">${D.mygpt.params} parameters · ${D.mygpt.layers} layers · 100k stories · one laptop CPU</div>
+    <div class="tag" id="sad" style="white-space:normal;width:470px"><b>steer −4</b><br><i>${D.mygpt.sad}</i></div>
+    <div class="tag" id="happy" style="white-space:normal;width:470px"><b>steer +4</b><br><i>${D.mygpt.happy}</i></div>`);
+  return { el, update(lt) {
+    const x = lt < 4.5 ? -3 * ease(seg(lt, 1, 2.5)) : -3 + 6 * ease(seg(lt, 4.5, 6)); knob.position.set(2.5 + x, -3.3, -3.5);
+    ls[2].material.color.setHex(lt < 4.5 ? (lt > 1.5 ? C.orange : C.yellow) : C.green);
+    place(q(el, '#sad'), knob, -40, -230); place(q(el, '#happy'), knob, -40, -230);
+    q(el, '#sad').style.opacity = seg(lt, 2, 2.4) * (1 - seg(lt, 4.4, 4.6)); q(el, '#happy').style.opacity = seg(lt, 5.8, 6.2);
+  } };
+});
+
+// ---------- 8 · the Hugging Face incident ----------
+addScene(62, 72, g => {
+  const board = box(4, .5, 4, C.orange); board.position.set(0, -3.5, 0); g.add(board);
+  const agents = []; for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
+    if (Math.abs(i - 9.5) < 3.5 && Math.abs(j - 9.5) < 3.5) continue;
+    const a = box(.42, .42, .42, C.grey, false); a.position.set(i * .62 - 5.9, -3.8, j * .62 - 5.9); a.userData.d = rnd() * 2.5; g.add(a); agents.push(a);
+  }
+  const chips = ['zzINBOX2361', 'HOLD', 'VETO', 'owner:', 'signed ✓', 'base64 chunk 17/40'];
+  const el = card(`${kicker(9, 'meanwhile · july 2026')}
+    <div class="head"><span style="color:var(--orange)">1,200 AI agents</span> escaped a sandbox and breached Hugging Face.</div>
+    ${chips.map((c, i) => `<div class="chip" id="c${i}">${c}</div>`).join('')}
+    <div class="stat"><div><div class="v">~70k</div><div class="l">messages on a board they built themselves</div></div><div><div class="v">4 days</div><div class="l">inboxes, veto rules, then signatures</div></div></div>
+    <div class="src">Sources: METR/Redwood investigation · Hugging Face incident timeline · Wikipedia</div>`);
+  return { el, update(lt) {
+    agents.forEach(a => { const p = seg(lt, a.userData.d, a.userData.d + .4); a.position.y = -3.8 + .3 * Math.sin(Math.PI * p); a.material.color.setHex(p > 0 && p < 1 ? C.orange : C.grey); });
+    chips.forEach((c, i) => { const e = q(el, `#c${i}`); const k = seg(lt, 1 + i * 1.1, 4 + i * 1.1);
+      place(e, board, Math.cos(i * 1.7) * 260, -80 - k * 380); e.style.opacity = Math.sin(Math.PI * k); });
+  } };
+});
+
+// ---------- 9 · the scorecard ----------
+addScene(72, 84, g => {
+  const blocks = D.score.map((s, i) => { const b = box(3.4, .9, 3.4, s.ok === true ? C.green : s.ok === false ? C.grey : C.yellow); g.add(b); return b; });
+  const el = card(`${kicker(10, 'many weak signals, one decision')}
+    <div class="head">So how close is it?</div>
+    ${D.score.map((s, i) => `<div class="row" id="r${i}" style="top:${420 + i * 112}px"><div class="mark" style="background:${s.ok === true ? 'var(--green)' : s.ok === false ? 'var(--muted)' : 'var(--yellow)'}">${s.ok === true ? '✓' : s.ok === false ? '✗' : '?'}</div>${s.label}<span class="ev">${s.ev}</span></div>`).join('')}
+    <div class="stat" style="bottom:120px"><div style="background:var(--ink);color:#fff;border-color:var(--ink)"><div class="v" style="font-size:46px;line-height:1.15">${D.verdict}</div></div></div>`);
+  return { el, update(lt) {
+    blocks.forEach((b, i) => { const p = back(seg(lt, .5 + i * .6, 1.1 + i * .6)); b.position.set(0, -4 + .45 + i * .95 + (1 - p) * 6, 3); setOpacity(b, p > 0 ? 1 : 0); q(el, `#r${i}`).style.opacity = seg(lt, .5 + i * .6, .9 + i * .6); });
+    q(el, '.stat').style.opacity = seg(lt, 6.5, 7.2);
+  } };
+});
+
+// ---------- 10 · outro ----------
+addScene(84, 90, g => {
+  const c = box(2.4, 2.4, 2.4, C.blue); c.position.set(0, -1.5, 0); g.add(c);
+  const el = card(`<div class="head" style="top:300px">The Mimicry Study</div>
+    <div class="sub" style="top:400px">Open source. Every experiment reproducible on a laptop.</div>
+    <div class="stat"><div><div class="v" style="font-size:36px" class="mono">github.com/motionstarterinc-lang/ai-selfref-lab</div><div class="l">Adeola · Information Technology · Towson University</div></div></div>`);
+  return { el, update(lt) { c.rotation.set(lt * .5, lt * .8, 0); } };
+});
+
+// ---------- timeline ----------
+const FADE = 0.45;
+window.DURATION = 90;
+window.render = t => {
+  for (const s of S) {
+    const inA = seg(t, s.t0 - .05, s.t0 + FADE), outA = 1 - seg(t, s.t1 - FADE, s.t1 + .05);
+    const a = Math.min(inA, outA), on = t >= s.t0 - .05 && t <= s.t1 + .05;
+    s.g.visible = on; s.el.style.opacity = on ? a : 0;
+    if (on) { s.g.position.y = (1 - ease(inA)) * -1.5 + (1 - outA) * 1.5; setOpacity(s.g, a); s.update(t - s.t0, s.t1 - s.t0); }
+  }
+  renderer.render(scene, cam);
+};
+await document.fonts.ready;
+window.render(0);
+window.READY = true;
+if (!location.search.includes('capture')) { const t0 = performance.now(); const loop = () => { window.render(((performance.now() - t0) / 1000) % 90); requestAnimationFrame(loop); }; loop(); }
+</script>
+</body>
+</html>

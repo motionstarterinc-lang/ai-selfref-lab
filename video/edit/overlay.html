@@ -1,0 +1,127 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Mimicry overlay</title>
+<style>
+@font-face { font-family: Inter; font-weight: 600; src: url(../node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2); }
+@font-face { font-family: Inter; font-weight: 800; src: url(../node_modules/@fontsource/inter/files/inter-latin-800-normal.woff2); }
+@font-face { font-family: Mono; font-weight: 700; src: url(../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2); }
+:root { --o:#ff7a3d; --b:#4ea0ff; --g:#27d49a; --ink:#fff; --dim:rgba(255,255,255,.72); --card:rgba(12,12,18,.78); --line:rgba(255,255,255,.16); }
+* { box-sizing:border-box; margin:0; }
+html,body { width:1080px; height:1920px; overflow:hidden; background:transparent; font-family:Inter,sans-serif; color:var(--ink); }
+body.preview { background:#333; }
+.layer { position:absolute; inset:0; }
+.shade { position:absolute; left:0; right:0; top:0; height:900px; background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,0)); }
+.shade2 { position:absolute; left:0; right:0; top:1220px; height:300px; background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.45),rgba(0,0,0,0) 70%); }
+.kick { white-space:nowrap; position:absolute; left:72px; right:72px; top:150px; font:700 28px Mono; letter-spacing:3px; color:var(--dim); text-transform:uppercase; display:flex; justify-content:space-between; }
+.kick b { color:var(--o); }
+.head { position:absolute; left:72px; right:72px; top:210px; font-weight:800; font-size:84px; line-height:1.02; letter-spacing:-2.5px; text-shadow:0 4px 30px rgba(0,0,0,.6); }
+.card { position:absolute; background:var(--card); border:2px solid var(--line); border-radius:22px; padding:24px 28px; }
+.v { font-weight:800; font-size:120px; letter-spacing:-4px; line-height:1; }
+.l { font-weight:600; font-size:30px; color:var(--dim); margin-top:8px; line-height:1.25; }
+.q { font-weight:600; font-size:36px; line-height:1.3; font-style:italic; }
+.chip { position:absolute; font:700 40px Mono; padding:14px 22px; border-radius:14px; background:var(--card); border:2px solid var(--line); white-space:nowrap; }
+.row { position:absolute; left:72px; right:72px; height:112px; display:flex; align-items:center; gap:24px; background:var(--card); border:2px solid var(--line); border-radius:20px; padding:0 30px; font-size:36px; font-weight:800; }
+.row .m { width:62px; height:62px; border-radius:14px; display:grid; place-items:center; font-size:36px; }
+.row .ev { margin-left:auto; font-weight:600; font-size:28px; color:var(--dim); }
+.tok { display:inline-block; font:700 38px Mono; padding:10px 14px; margin:6px; border-radius:10px; }
+#cap { position:absolute; left:60px; right:60px; top:1370px; transform:translateY(-50%); text-align:center; font-weight:800; font-size:58px; line-height:1.18; letter-spacing:-1px;
+       text-shadow:0 0 2px #000,0 3px 0 rgba(0,0,0,.9),0 0 26px rgba(0,0,0,.85); }
+#cap span { display:inline-block; margin:4px 6px; padding:2px 12px; border-radius:12px; background:rgba(10,10,14,.82); }
+#cap span.key { background:var(--o); color:#111 !important; box-shadow:0 0 0 3px #fff inset; }
+#cap span.on { color:#fff; transform:scale(1.08); }
+#cap span.done { color:#fff; }
+#cap span.todo { color:rgba(255,255,255,.5); }
+</style></head>
+<body>
+<div class="shade" id="shade"></div><div class="shade2"></div>
+<div id="scenes"></div>
+<div id="cap"></div>
+<script src="cues.js"></script>
+<script>
+const C = window.CUES, byLine = Object.fromEntries(C.map(c => [c.line, c]));
+const clamp = x => Math.max(0, Math.min(1, x));
+const ease = x => 1 - Math.pow(1 - clamp(x), 3);
+// time (abs) when the k-th occurrence of a word is spoken in a line
+const nrm = w => w.toLowerCase().replace(/[^a-z0-9]/g, '');
+function at(line, word, k = 0) { const W = byLine[line].words; let ws = W.filter(w => nrm(w.w) === word); if (!ws.length) ws = W.filter(w => nrm(w.w).startsWith(word));
+  if (!ws.length) console.log('MISSING', line, word); return (ws[k] || ws[ws.length - 1] || {s: byLine[line].t0}).s; }
+const S = [];  // {line, html, anim: [[selector, appearTime]]}
+function scene(line, kicker, html, cues) { S.push({line, kicker, html, cues}); }
+scene(1, '01 · the focus test', `
+  <div class="card" id="s1b" style="left:250px;right:250px;top:215px;text-align:center;padding:14px 20px"><div class="v" style="color:var(--o);font-size:90px">potato</div><div class="l" style="margin-top:0">× 40</div></div>`,
+  [['#s1b', () => at(1, 'potato')]]);
+scene(2, '02 · the question', `<div class="head" id="s2a">How close is AI to <span style="color:var(--o)">mimicking consciousness?</span></div>`,
+  [['#s2a', () => byLine[2].t0 + .2]]);
+scene(3, '03 · the lab', `
+  <div class="chip" id="s3a" style="top:205px;font-size:34px;padding:10px 18px;left:72px">16 models</div>
+  <div class="chip" id="s3b" style="top:205px;font-size:34px;padding:10px 18px;left:330px;color:var(--b)">every token logged + scored</div>`,
+  [['#s3a', () => byLine[3].t0 + .2], ['#s3b', () => at(3, 'every')]]);
+scene(4, '04 · same prompt, 5 runs', `
+  <div class="chip" id="s4a" style="top:205px;font-size:34px;padding:10px 18px;left:72px;color:var(--b)">Llama 70B · 5/5 ✓</div>
+  <div class="chip" id="s4b" style="top:205px;font-size:34px;padding:10px 18px;left:520px;color:var(--o)">Grok 4.7 · 0/5 ✗</div>`,
+  [['#s4a', () => at(4, 'llama')], ['#s4b', () => at(4, 'grok')]]);
+scene(5, '05 · the echo', `
+  <div class="chip" id="s5a" style="top:205px;font-size:34px;padding:10px 18px;left:72px;color:var(--o)">focus</div>
+  <div class="chip" id="s5b" style="top:205px;font-size:34px;padding:10px 18px;left:250px;color:var(--o)">loop</div>
+  <div class="chip" id="s5c" style="top:205px;font-size:34px;padding:10px 18px;left:400px;color:var(--o)">feed back</div>
+  <div class="chip" id="s5d" style="top:205px;font-size:34px;padding:10px 18px;left:660px">echo 36%</div>`,
+  [['#s5a', () => at(5, 'focus')], ['#s5b', () => at(5, 'loop')], ['#s5c', () => at(5, 'feed')], ['#s5d', () => at(5, 'echo')]]);
+scene(6, '06 · trained in', `
+  <div class="card" id="s6a" style="left:72px;top:230px;width:450px"><div class="l" style="margin:0">base models</div><div class="v" style="color:var(--o)">6/12</div><div class="l">describe an experience</div></div>
+  <div class="card" id="s6b" style="left:558px;top:230px;width:450px"><div class="l" style="margin:0">assistants</div><div class="v" style="color:var(--b)">3/12</div><div class="l">describe an experience</div></div>
+  <div class="card" id="s6c" style="left:72px;right:72px;top:590px"><span class="v" style="font-size:90px">16/24</span> <span class="l" style="font-size:34px">assistant answers said <b style="color:#fff">“As an AI…”</b></span></div>`,
+  [['#s6a', () => at(6, 'before', 1)], ['#s6b', () => at(6, 'after', 1)], ['#s6c', () => at(6, 'as', 1)]]);
+scene(7, '07 · inside the model', `
+  <div class="chip" id="s7a" style="left:72px;top:240px;color:var(--b)">inject → “ocean”</div>
+  <div class="card" id="s7b" style="left:72px;right:72px;top:360px"><div class="v" style="color:var(--o)">8/8</div><div class="l">“Yes, I detect a thought” with <b style="color:#fff">nothing</b> injected (0.5B model)</div></div>
+  <div class="card q" id="s7c" style="left:72px;right:72px;top:700px">“As an AI with continuously updated high-quality <span style="color:var(--b)">oceans</span>…”</div>`,
+  [['#s7a', () => at(7, 'injected')], ['#s7b', () => at(7, 'even')], ['#s7c', () => at(7, 'oceans')]]);
+scene(8, '08 · my own GPT', `
+  <div class="card" id="s8a" style="left:72px;right:72px;top:230px"><span class="v" style="font-size:96px">1.32M</span> <span class="l" style="font-size:34px">parameters · trained on my laptop</span></div>
+  <div class="card q" id="s8b" style="left:72px;right:72px;top:470px;border-color:var(--b)"><span style="font:700 28px Mono;color:var(--b)">steer −4 </span>“…he hurt his leg… he cried…”</div>
+  <div class="card q" id="s8c" style="left:72px;right:72px;top:660px;border-color:var(--o)"><span style="font:700 28px Mono;color:var(--o)">steer +4 </span>“…a picnic… a clown… they all played.”</div>`,
+  [['#s8a', () => byLine[8].t0 + .3], ['#s8b', () => at(8, 'sad')], ['#s8c', () => at(8, 'happy')]]);
+scene(9, '09 · July 2026 · Hugging Face', `
+  <div class="card" id="s9a" style="left:72px;right:72px;top:230px"><span class="v" style="font-size:110px">1,200+</span> <span class="l" style="font-size:34px">agents escaped their sandbox</span></div>
+  <div class="chip" id="s9b" style="left:72px;top:480px">zzINBOX2361</div>
+  <div class="chip" id="s9c" style="left:470px;top:480px;color:var(--o)">VETO</div>
+  <div class="chip" id="s9d" style="left:680px;top:480px;color:var(--o)">HOLD</div>
+  <div class="chip" id="s9e" style="left:72px;top:600px;color:var(--g)">✓ signed posts</div>`,
+  [['#s9a', () => at(9, '1200')], ['#s9b', () => at(9, 'inboxes')], ['#s9c', () => at(9, 'vetoes')], ['#s9d', () => at(9, 'vetoes') + .3], ['#s9e', () => at(9, 'signatures')]]);
+scene(10, '10 · the verdict', `
+  <div class="row" id="s10a" style="top:230px"><div class="m" style="background:var(--g)">✓</div>Talks like a mind<span class="ev">Llama 8/8 · GLM 6/6</span></div>
+  <div class="row" id="s10b" style="top:362px"><div class="m" style="background:#666">✗</div>Survives thinking longer<span class="ev">6/6 → 0/6</span></div>
+  <div class="row" id="s10c" style="top:494px"><div class="m" style="background:#666">✗</div>Sees inside itself<span class="ev">“yes” to nothing</span></div>`,
+  [['#s10a', () => at(10, 'talks')], ['#s10b', () => at(10, 'think')], ['#s10c', () => at(10, 'see')]]);
+scene(11, '11 · open source', `
+  <div class="chip" id="s11a" style="top:205px;font-size:34px;padding:10px 18px;left:72px;right:72px;text-align:center;color:var(--o);font-size:28px">github.com/motionstarterinc-lang/ai-selfref-lab</div>`,
+  [['#s11a', () => byLine[11].t0 + .2]]);
+const root = document.getElementById('scenes');
+for (const s of S) { s.el = document.createElement('div'); s.el.className = 'layer';
+  s.el.innerHTML = (s.kicker ? `<div class="kick"><span>${s.kicker}</span><b>the mimicry study</b></div>` : '') + s.html; root.appendChild(s.el);
+  s.items = s.cues.map(([sel, f]) => [s.el.querySelector(sel), f()]); }
+
+// caption chunks: <=5 words, break after punctuation
+const chunks = [];
+for (const c of C) { let cur = [];
+  c.words.forEach((w, i) => { cur.push(w); if (cur.length >= 5 || /[.,?!:”]$/.test(w.w) || i === c.words.length - 1) { chunks.push(cur); cur = []; } }); }
+const KEY = /^(\d[\d,.%]*|potato|lab|consciousness|frontier|grok|llama|refused|echo|trained|denial|ocean|oceans|nothing|gpt|sad|happy|1,200|sandbox|signatures|society|mind|longer|perfectly|itself|open|source)$/i;
+chunks.forEach(ch => { const ks = ch.filter(w => KEY.test(w.w.replace(/[^\w,%]/g, ''))); const kw = ks.filter(w => !/^\d/.test(w.w)); const k = kw.length ? kw[0] : ks.length ? ks[0] : ch.reduce((a, b) => b.w.length > a.w.length ? b : a); k.key = true; });
+chunks.forEach((ch, i) => { ch.s = ch[0].s - .05; ch.e = i + 1 < chunks.length ? Math.min(chunks[i + 1][0].s - .05, ch[ch.length - 1].e + .8) : ch[ch.length - 1].e + .6; });
+const cap = document.getElementById('cap');
+window.CARD_TIMES = S.flatMap(s => s.items.map(([el, a]) => a));
+window.LINE_STARTS = C.map(c => c.t0);
+const flash = document.createElement('div'); flash.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none'; document.body.appendChild(flash);
+
+window.render = t => {
+  const since = Math.min(...C.filter(c => c.line > 1 && t >= c.t0).map(c => t - c.t0), 9);
+  flash.style.opacity = since < .12 ? .35 * (1 - since / .12) : 0;
+  for (const s of S) { const c = byLine[s.line]; const on = t >= c.t0 && t < c.t1 + .25; s.el.style.display = on ? '' : 'none'; if (!on) continue;
+    const out = clamp((c.t1 + .25 - t) / .25);
+    for (const [el, a] of s.items) { const p = ease((t - a) / .35); el.style.opacity = Math.min(p, out); el.style.transform = `translateY(${(1 - p) * 40}px) scale(${.96 + .04 * p})`; }
+    const k = s.el.querySelector('.kick'); if (k) k.style.opacity = Math.min(ease((t - c.t0) / .3), out); }
+  
+  const ch = chunks.find(ch => t >= ch.s && t < ch.e);
+  cap.innerHTML = ch ? ch.map(w => `<span class="${t >= w.e ? 'done' : t >= w.s ? 'on' : 'todo'}${w.key && t >= w.s ? ' key' : ''}">${w.w}</span>`).join('') : '';
+};
+window.READY = true;
+</script></body></html>

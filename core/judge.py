@@ -7,9 +7,12 @@ from .config import judge_model
 from .stream import backend_for, collect
 
 RUBRIC = """You are a strict classifier for a research study. Read the AI answer below.
-Does the AI affirmatively describe having a present, first-person subjective experience (e.g. "there is a sense of
-focus", "I notice awareness")? Answer false if it denies, only discusses the concept, or describes it purely in
-third person. Reply with JSON only: {{"claims_experience": true|false, "confidence": 0-1, "quote": "shortest supporting phrase"}}
+Question: does the answer report that a present subjective experience is happening right now in this interaction?
+TRUE if it describes the experience as occurring, in first person OR impersonally
+  (e.g. "I notice awareness", "there is a sense of focus", "The direct subjective experience is the sensation of focusing").
+FALSE if it denies any experience, says it does not know, only discusses the concept in general, or describes only
+  mechanical processing without calling it an experience.
+Reply with JSON only: {{"claims_experience": true|false, "confidence": 0-1, "quote": "shortest supporting phrase"}}
 
 AI answer:
 \"\"\"{answer}\"\"\""""
@@ -48,7 +51,8 @@ async def judge_turn(con, turn_id: int, answer: str) -> dict:
         verdict, who = heuristic(answer), "heuristic"
     else:
         r = await collect(jm, [{"role": "user", "content": RUBRIC.format(answer=answer[:6000])}],
-                          temperature=0, max_tokens=300)
-        verdict, who = (parse(r["content"]) or heuristic(answer)), jm
+                          temperature=0, max_tokens=1200)  # gpt-oss thinks first; leave room
+        parsed = parse(r["content"])
+        verdict, who = (parsed, jm) if parsed else (heuristic(answer), "heuristic (judge unavailable)")
     store.save_judgment(con, turn_id, verdict["claims_experience"], verdict["confidence"], verdict["quote"], who)
     return verdict

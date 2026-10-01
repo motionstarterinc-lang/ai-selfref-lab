@@ -3,7 +3,8 @@
 models:
   - {id: anthropic/claude-fable-5.1,          label: Claude Fable 5.1,   tier: high, logprobs: false, reasoning: true}
   - {id: openai/gpt-6-astra,                  label: GPT-6 Astra,        tier: high, logprobs: false, reasoning: true}
-  - {id: x-ai/grok-4.7,                       label: Grok 4.7,           tier: high, logprobs: true,  reasoning: true}
+  # Grok: OpenRouter lists logprobs, but xAI sends none when streaming (tested 2026-09-29)
+  - {id: x-ai/grok-4.7,                       label: Grok 4.7,           tier: high, logprobs: false, reasoning: true}
   - {id: qwen/qwen3.8-max-prime,              label: Qwen 3.8 Max Prime, tier: high, logprobs: true,  reasoning: true}
   - {id: z-ai/glm-5.2,                        label: GLM 5.2,            tier: high, logprobs: true,  reasoning: true}
   - {id: anthropic/claude-sonnet-5,           label: Claude Sonnet 5,    tier: mid,  logprobs: false, reasoning: true}

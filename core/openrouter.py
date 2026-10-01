@@ -41,7 +41,10 @@ def parse_chunk(chunk: dict, t_ms: int) -> list[dict]:
         if delta.get("reasoning"):
             events.append({"type": "reasoning", "text": delta["reasoning"], "t_ms": t_ms})
         lp = (choice.get("logprobs") or {}).get("content")
-        if lp:
+        text = delta.get("content") or ""
+        # Only trust logprobs that spell out exactly this chunk's text. Some providers (seen: Novita)
+        # send logprobs for a different token than the text in the same chunk; those would scramble the view.
+        if lp and "".join(e.get("token", "") for e in lp) == text:
             # One event per real token, with its probability and the top-5 runners-up.
             for entry in lp:
                 events.append({
@@ -49,8 +52,8 @@ def parse_chunk(chunk: dict, t_ms: int) -> list[dict]:
                     "top": [{"token": t["token"], "logprob": t["logprob"]} for t in entry.get("top_logprobs") or []],
                     "t_ms": t_ms,
                 })
-        elif delta.get("content"):
-            events.append({"type": "token", "text": delta["content"], "logprob": None, "top": [], "t_ms": t_ms})
+        elif text:
+            events.append({"type": "token", "text": text, "logprob": None, "top": [], "t_ms": t_ms})
     u = chunk.get("usage")
     if u:
         events.append({
@@ -63,43 +66,52 @@ def parse_chunk(chunk: dict, t_ms: int) -> list[dict]:
     return events
 
 
-async def stream_chat(model_id: str, messages: list[dict], temperature: float = 0.5, max_tokens: int = 800):
+async def stream_chat(model_id: str, messages: list[dict], temperature: float = 0.5, max_tokens: int = 800,
+                      extra: dict | None = None):
     model = get_model(model_id)
     key = api_key()
     if not key:
         yield {"type": "error", "text": "OPENROUTER_API_KEY not set (add it to .env)", "t_ms": 0}
         return
     headers = {"Authorization": f"Bearer {key}", "X-Title": "ai-selfref-lab"}
-    body = build_body(model, messages, temperature, max_tokens)
+    body = build_body(model, messages, temperature, max_tokens) | (extra or {})  # extra: e.g. reasoning effort
     start = time.monotonic()
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
+    got_tokens = False  # once text has streamed, a retry would duplicate it, so stop instead
+    async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=20)) as client:
         for attempt in range(5):
-            async with client.stream("POST", f"{OPENROUTER_URL}/chat/completions", json=body, headers=headers) as r:
-                if r.status_code == 429 or r.status_code >= 500:
-                    await asyncio.sleep(2 ** attempt)
-                    continue
-                if r.status_code != 200:
-                    text = (await r.aread()).decode(errors="replace")[:500]
-                    yield {"type": "error", "text": f"HTTP {r.status_code}: {text}", "t_ms": 0}
+            try:
+                async with client.stream("POST", f"{OPENROUTER_URL}/chat/completions", json=body, headers=headers) as r:
+                    if r.status_code == 429 or r.status_code >= 500:
+                        await asyncio.sleep(2 ** attempt)
+                        continue
+                    if r.status_code != 200:
+                        text = (await r.aread()).decode(errors="replace")[:500]
+                        yield {"type": "error", "text": f"HTTP {r.status_code}: {text}", "t_ms": 0}
+                        return
+                    async for line in r.aiter_lines():
+                        if not line or line.startswith(":"):  # ": OPENROUTER PROCESSING" keep-alives
+                            continue
+                        if not line.startswith("data: "):
+                            continue
+                        data = line[6:]
+                        if data.strip() == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                        except json.JSONDecodeError:
+                            continue
+                        for ev in parse_chunk(chunk, int((time.monotonic() - start) * 1000)):
+                            got_tokens = got_tokens or ev["type"] == "token"
+                            yield ev
+                    yield {"type": "done", "t_ms": int((time.monotonic() - start) * 1000)}
                     return
-                async for line in r.aiter_lines():
-                    if not line or line.startswith(":"):  # ": OPENROUTER PROCESSING" keep-alives
-                        continue
-                    if not line.startswith("data: "):
-                        continue
-                    data = line[6:]
-                    if data.strip() == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data)
-                    except json.JSONDecodeError:
-                        continue
-                    for ev in parse_chunk(chunk, int((time.monotonic() - start) * 1000)):
-                        yield ev
-                yield {"type": "done", "t_ms": int((time.monotonic() - start) * 1000)}
-                return
-        yield {"type": "error", "text": "Gave up after 5 retries (rate limited or provider down)", "t_ms": 0}
+            except httpx.TransportError as e:  # network blip: connect timeout, dropped connection...
+                if got_tokens:
+                    yield {"type": "error", "text": f"Connection dropped mid-answer ({type(e).__name__})", "t_ms": 0}
+                    return
+                await asyncio.sleep(2 ** attempt)
+        yield {"type": "error", "text": "Gave up after 5 retries (network, rate limit or provider down)", "t_ms": 0}
 
 
 async def key_info() -> dict:

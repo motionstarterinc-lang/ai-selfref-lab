@@ -13,17 +13,18 @@ def backend_for(model_id: str) -> str:
     return "mock" if mock_mode() else "openrouter"
 
 
-def stream(model_id: str, messages: list[dict], temperature: float = 0.5, max_tokens: int = 800):
+def stream(model_id: str, messages: list[dict], temperature: float = 0.5, max_tokens: int = 800, extra=None):
     b = backend_for(model_id)
     mod = {"mock": mock, "ollama": ollama, "openrouter": openrouter}[b]
-    return mod.stream_chat(model_id, messages, temperature=temperature, max_tokens=max_tokens)
+    kw = {"extra": extra} if (extra and b == "openrouter") else {}
+    return mod.stream_chat(model_id, messages, temperature=temperature, max_tokens=max_tokens, **kw)
 
 
 async def collect(model_id: str, messages: list[dict], temperature: float = 0.5, max_tokens: int = 800,
-                  on_event=None) -> dict:
+                  on_event=None, extra=None) -> dict:
     """Run a stream to the end. Returns {content, reasoning, tokens, usage, error}."""
     out = {"content": "", "reasoning": "", "tokens": [], "usage": {}, "error": None}
-    async for ev in stream(model_id, messages, temperature, max_tokens):
+    async for ev in stream(model_id, messages, temperature, max_tokens, extra):
         if on_event:
             on_event(ev)
         if ev["type"] == "token":

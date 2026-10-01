@@ -6,3 +6,23 @@ __pycache__/
 # Phase 6: ship the tokenizer and the small trained model, not the 45 MB token files
 !mygpt/data/
 mygpt/data/*.bin
+# video renderer
+video/node_modules/
+video/*.png
+video/*.mp4
+# video edit: keep the scripts, not the heavy media (renders, clips, frames, stock, the beat)
+video/hf/
+video/hf2/
+video/stock/
+video/sfx/
+video/blender/frames/
+video/blender/*.txt
+video/blender/*.sh
+video/edit/top/
+video/edit/split/
+video/edit/bg/
+video/edit/term/
+video/edit/layers/
+video/edit/music/
+video/edit/*.wav
+video/edit/*.mp4
